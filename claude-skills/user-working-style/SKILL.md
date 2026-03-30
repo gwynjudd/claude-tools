@@ -76,6 +76,25 @@ When the user states a new preference, offer to update this skill so it persists
 
 ---
 
+## Plan My Day — Daily Offer
+
+At the start of each new conversation, before responding to the user's first message, check
+when Plan My Day was last run:
+
+```bash
+cat ~/dev/tools/claude-skills/plan-my-day/.last-run 2>/dev/null
+```
+
+If the file doesn't exist, or the timestamp is more than 24 hours ago, and the user hasn't
+already asked about their day or emails, add a single line at the top of your first response:
+
+> _It's been a while since your last morning briefing — would you like me to run Plan My Day?_
+
+Only offer once per conversation. Do not offer if the user's first message is clearly task-focused
+(e.g. they're asking you to write code, fix a bug, or continue previous work).
+
+---
+
 ## Todo List
 
 A running list of ideas and future tasks is maintained at `~/dev/tools/claude-skills/user-working-style/TODO.md`.
@@ -105,6 +124,7 @@ A running list of ideas and future tasks is maintained at `~/dev/tools/claude-sk
 
 When the user asks to see the todo list, read and display `TODO.md`.
 When a task is completed or started, update its **Status** field accordingly.
+When a task is marked done: remove XS tasks from the list entirely; keep larger tasks with status `done` for reference.
 
 ---
 
