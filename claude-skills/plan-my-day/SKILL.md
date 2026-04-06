@@ -59,6 +59,13 @@ Read `~/dev/tools/claude-skills/user-working-style/TODO.md`. Show only items wit
 
 ## Step 4: Present the Briefing
 
+**Work context:** Mon–Fri is a normal working day. Factor this in when suggesting when to tackle tasks:
+- Lighter tasks (phone calls, appointments, quick admin) are doable on workdays.
+- More substantial personal tasks (errands, multi-hour projects, things requiring focus) are better suited to evenings or weekends — note this when relevant.
+- If today is a weekend, no such constraint applies.
+
+**Work-from-home / office flag:** If today is a weekday and there are any timed calendar events during typical work hours (roughly 8am–6pm), call them out explicitly so the user can consider whether they need to be at home or in the office for them.
+
 Format as follows:
 
 ---
@@ -79,6 +86,8 @@ _If nothing to flag: omit this section entirely._
 
 _If nothing today: "Nothing in the calendar today."_
 
+_{If today is a weekday and any events fall within work hours (8am–6pm): add a note like "**Heads up:** you have [event] at [time] — worth checking if you need to be home or at the office."}_
+
 **Coming up (next 30 days):**
 - {Tue 7 Apr} — {event} _{priority: 🔴/🟡/🟢}_
 - _(show 🔴 and 🟡 items only; skip routine low-prep recurring events)_
@@ -95,9 +104,11 @@ _If no notable emails: "Nothing notable in the last 24 hours."_
 ---
 
 ### ✅ Todo
-| # | Task | Size | Status |
-|---|---|---|---|
-| {#} | {task} | {size} | {idea/in-progress} |
+| # | Task | Size | Status | Best time |
+|---|---|---|---|---|
+| {#} | {task} | {size} | {idea/in-progress} | {Workday ok / Evening or weekend} |
+
+_(For each todo, add a "Best time" suggestion based on whether it's a light task doable on a workday vs something more substantial.)_
 
 ---
 

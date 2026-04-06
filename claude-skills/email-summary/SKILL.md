@@ -4,7 +4,7 @@ description: >
   Load this skill when the user asks to check, summarise, review, or get a digest of their emails,
   or asks what emails they have received. Summarises recent emails from Gmail, filtering junk and
   highlighting what requires action. Groups results by category: family, people, bills, rental
-  property, scouting, school/kids, and security alerts. Default period is last 24 hours; the user
+  property, scouting, school/kids, giving, and security alerts. Default period is last 24 hours; the user
   can specify a different period (e.g. "last week", "3d"). Supports --audit flag to also analyse
   discarded emails for missed categories.
 ---
@@ -94,6 +94,28 @@ Invoices, payment due notices, account statements, overdue notices, utility bill
 Anything relating to a rental property the user owns.
 - Signals: property manager, tenant, real estate agent, maintenance requests, inspections,
   lease, rent payment, property address references
+- Known senders: Aspire Property Management (aspireproperty.co.nz, email.propertyme.com),
+  any sender with "property management" in their name or email domain
+- Always include: financial statements, rental market updates, maintenance completions,
+  payment date notices, any query about the property or tenancy
+
+**Attachments — download automatically:**
+Save attachments from rental property emails to the appropriate subfolder under
+`/mnt/c/Users/gwynj/OneDrive/rental/3-20 Russell road/` (WSL path for `C:\Users\gwynj\OneDrive\rental\3-20 Russell road`).
+
+Use this folder mapping based on the email content:
+| Email type | Subfolder |
+|---|---|
+| Financial/activity statements, owner statements | `Statements` |
+| Insurance documents, policies, renewals | `Insurance` |
+| Tax summaries, expense reports | `Taxes & expenses` |
+| Maintenance jobs, repair quotes, contractor invoices | `Reno quotes` |
+| Legal documents, notices, tenancy agreements | `Legal` |
+| Healthy homes compliance, inspection reports | `healthy homes` |
+| Bank/payment records | `bank` |
+| Everything else | root (`3-20 Russell road`) |
+
+Use the filename format `YYYY-MM-DD - {description}.{ext}`. Note the saved path in the summary.
 
 ### SCOUTING
 Scout-related emails of any kind.
@@ -108,6 +130,28 @@ children.
 - Signals: school name, Compass portal, teacher, principal, student name, parent notification,
   school events, reports, fees, excursions, parent-teacher conferences
 - Always flag: events with dates, permission slips, fees due, time-sensitive notices
+
+### GIVING
+Emails related to charitable donations or organisations the user donates to.
+- Include: donation receipts, tax receipts, thank-you emails from charities, campaign updates from
+  charities the user has donated to, requests for donations from known organisations
+- Exclude: cold solicitations from unknown organisations (those go to DISCARD)
+- Always flag: tax receipts (useful for records), donation confirmations, any action required
+
+**Known organisations:**
+- Barnardos
+- Red Cross
+- Blind Low Vision NZ
+- Invisible Girl Project
+- Save the Children
+
+**Tax/donation receipts — download automatically:**
+If an email contains a tax receipt or donation receipt (as an attachment or inline), download it
+using `mcp__gmail__download_attachment` and save to `/mnt/c/Users/gwynj/OneDrive/donations/`
+(using the WSL path for `C:\Users\gwynj\OneDrive\donations`). If no attachment exists but the
+email body itself is the receipt, save the email body as a plain text file. Use the naming format
+`YYYY-MM-DD - {charity name} - receipt.{ext}`.
+Note the saved path in the summary.
 
 ### SECURITY ALERTS
 Emails about account security from trusted services (Google, Apple, Microsoft, banks, etc.).
@@ -185,6 +229,16 @@ _(repeat for each email)_
 [{messageId}](https://mail.google.com/mail/u/0/#all/{messageId})
 > {Summary}
 > **Action:** {what needs to be done, if anything — permission slips, fees, event dates}
+
+---
+
+### 🤝 Giving ({count})
+
+**{Sender}** — {Subject}
+[{messageId}](https://mail.google.com/mail/u/0/#all/{messageId})
+> {Summary}
+> **Receipt saved:** `{path}` ← include if downloaded
+> **Action:** {e.g. "No action needed", or any follow-up required}
 
 ---
 
