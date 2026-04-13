@@ -1,0 +1,19 @@
+{
+  "rental": {
+    "base": "/mnt/c/Users/gwynj/OneDrive/rental/3-20 Russell road",
+    "subtypes": {
+      "statement": "Statements",
+      "insurance": "Insurance",
+      "tax": "Taxes & expenses",
+      "maintenance": "Reno quotes",
+      "legal": "Legal",
+      "healthy_homes": "healthy homes",
+      "bank": "bank",
+      "default": ""
+    }
+  },
+  "giving": {
+    "base": "/mnt/c/Users/gwynj/OneDrive/donations",
+    "subtypes": {}
+  }
+}

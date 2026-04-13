@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(~/dev/tools/claude-skills/plan-my-day/config/)",
+      "Write(~/dev/tools/claude-skills/plan-my-day/config/)",
+      "Edit(~/dev/tools/claude-skills/plan-my-day/data/)",
+      "Write(~/dev/tools/claude-skills/plan-my-day/data/)",
+      "mcp__gcal__get-current-time",
+      "mcp__gcal__list-calendars",
+      "mcp__gcal__list-events",
+      "mcp__gcal__manage-accounts",
+      "mcp__gcal__search-events",
+      "mcp__gcal__update-event",
+      "mcp__gmail__search_emails",
+      "mcp__gmail__read_email",
+      "mcp__gmail__download_attachment",
+      "mcp__gtasks__task_clear",
+      "mcp__gtasks__task_create",
+      "mcp__gtasks__task_delete",
+      "mcp__gtasks__task_list",
+      "mcp__gtasks__task_update",
+      "mcp__gtasks__tasklist_list"
+    ]
+  },
+  "sandbox": {
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/dev/tools/claude-skills/plan-my-day/"
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "email-summary",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "fetch-email-html": "dist/fetch-email-html.js",
+    "fetch-emails":     "dist/fetch-emails.js",
+    "pre-classify":     "dist/pre-classify.js",
+    "save-attachment":  "dist/save-attachment.js",
+    "gmail-reauth":     "dist/gmail-reauth.js",
+    "search-emails":    "dist/search-emails.js"
+  },
+  "scripts": {
+    "build":       "tsup",
+    "build:watch": "tsup --watch",
+    "test":        "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup":        "^8.0.0",
+    "typescript":  "^5.5.0",
+    "vitest":      "^2.0.0"
+  }
+}

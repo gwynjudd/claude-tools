@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/dev/tools/claude-skills/email-summary/scripts/*)"
+    ]
+  },
+  "sandbox": {
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/dev/tools/claude-skills/email-summary/"
+      ]
+    }
+  }
+}

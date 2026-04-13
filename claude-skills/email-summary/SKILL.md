@@ -17,49 +17,55 @@ When this skill is invoked, fetch and summarise emails from Gmail for the specif
 "last week", "2d"), convert it to Gmail query syntax (e.g. `3d`, `7d`).
 
 **Flags:**
-- `--audit` — after the standard summary, analyse the discarded emails and append an audit section (see Step 5)
+- `--audit` — after the standard summary, analyse the discarded emails and append an audit section (see Step 4)
+
+> **Auth note:** If any script exits with an auth error, run:
+> `~/dev/tools/claude-skills/email-summary/scripts/gmail-reauth.sh`
 
 ---
 
-## Step 1: Fetch Emails
+## Step 1: Fetch emails
 
-Run `search_emails` with this query to get candidates, using `maxResults: 50`:
-
-```
-newer_than:{period} -category:promotions -category:updates -category:social
+```bash
+~/dev/tools/claude-skills/email-summary/scripts/fetch-emails.sh --period {period} [--max-body-chars 2000]
 ```
 
-Also run a second search to catch anything in the primary inbox that might have been missed:
-
+Outputs a JSON array to stdout:
+```json
+[{"id","from","fromEmail","subject","date","snippet","body","hasAttachments"}]
 ```
-newer_than:{period} in:inbox
-```
-
-Combine and deduplicate results by message ID.
 
 ---
 
-## Step 2: Read Each Email
+## Step 2: Rule-based pre-classification
 
-For each message in the results, call `read_email` with the `messageId` to get the full sender,
-subject, and body content.
+Pipe the JSON array into the pre-classifier:
 
-If `read_email` returns a response containing "This email message was sent in HTML format" with no
-readable body, the email is HTML-only with a useless plain-text fallback. In that case, fetch the
-HTML directly using the tool at `~/dev/tools/fetch-email-html.js`:
-
-```
-node ~/dev/tools/ai-helpers/fetch-email-html.js <messageId> --max-chars 4000
+```bash
+~/dev/tools/claude-skills/email-summary/scripts/fetch-emails.sh --period {period} \
+  | ~/dev/tools/claude-skills/email-summary/scripts/pre-classify.sh
 ```
 
-This calls the Gmail API directly, extracts the HTML part, and strips it to readable plain text.
-Use `--max-chars` to increase the limit if content appears truncated.
+Outputs:
+```json
+{
+  "pre_classified": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments","category","confidence"}],
+  "unclassified": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments"}]
+}
+```
+
+Pre-classified categories (all confidence `"high"`):
+- `FAMILY` — sender name or email matches `config/family.json`
+- `RENTAL_PROPERTY` — sender domain matches `config/categories.json → rentalDomains`
+- `GIVING` — sender name matches `config/categories.json → charities`
+- `DISCARD` — noreply/no-reply address, or unsubscribe/opt-out signal in body
 
 ---
 
-## Step 3: Classify
+## Step 3: AI classifies remaining emails
 
-Assign each email to exactly one category. If it doesn't fit any, mark it as DISCARD.
+For each email in `unclassified`, assign it to exactly one category. If it doesn't fit any,
+mark it as `DISCARD`.
 
 ### FAMILY
 Emails from or mentioning immediate and close family members.
@@ -99,24 +105,6 @@ Anything relating to a rental property the user owns.
 - Always include: financial statements, rental market updates, maintenance completions,
   payment date notices, any query about the property or tenancy
 
-**Attachments — download automatically:**
-Save attachments from rental property emails to the appropriate subfolder under
-`/mnt/c/Users/gwynj/OneDrive/rental/3-20 Russell road/` (WSL path for `C:\Users\gwynj\OneDrive\rental\3-20 Russell road`).
-
-Use this folder mapping based on the email content:
-| Email type | Subfolder |
-|---|---|
-| Financial/activity statements, owner statements | `Statements` |
-| Insurance documents, policies, renewals | `Insurance` |
-| Tax summaries, expense reports | `Taxes & expenses` |
-| Maintenance jobs, repair quotes, contractor invoices | `Reno quotes` |
-| Legal documents, notices, tenancy agreements | `Legal` |
-| Healthy homes compliance, inspection reports | `healthy homes` |
-| Bank/payment records | `bank` |
-| Everything else | root (`3-20 Russell road`) |
-
-Use the filename format `YYYY-MM-DD - {description}.{ext}`. Note the saved path in the summary.
-
 ### SCOUTING
 Scout-related emails of any kind.
 - Signals: Scouts, Scouting, scout group/troop/pack/hall, leader, commissioner, camp, jamboree,
@@ -145,14 +133,6 @@ Emails related to charitable donations or organisations the user donates to.
 - Invisible Girl Project
 - Save the Children
 
-**Tax/donation receipts — download automatically:**
-If an email contains a tax receipt or donation receipt (as an attachment or inline), download it
-using `mcp__gmail__download_attachment` and save to `/mnt/c/Users/gwynj/OneDrive/donations/`
-(using the WSL path for `C:\Users\gwynj\OneDrive\donations`). If no attachment exists but the
-email body itself is the receipt, save the email body as a plain text file. Use the naming format
-`YYYY-MM-DD - {charity name} - receipt.{ext}`.
-Note the saved path in the summary.
-
 ### SECURITY ALERTS
 Emails about account security from trusted services (Google, Apple, Microsoft, banks, etc.).
 - Include: login alerts, password changes, recovery phone/email changes, new device notifications,
@@ -164,11 +144,36 @@ Emails about account security from trusted services (Google, Apple, Microsoft, b
 Everything else: newsletters, promotions, social media notifications, marketing, automated
 shipping/order confirmations for routine purchases, calendar invite noise.
 Do not report these individually — just count them. When `--audit` is active, retain the full
-list for Step 5 rather than discarding entirely.
+list for Step 4 rather than discarding entirely.
 
 ---
 
-## Step 4: Present the Summary
+## Step 3b: Download attachments
+
+For emails in `RENTAL_PROPERTY` or `GIVING` that have `hasAttachments: true`, download each
+relevant attachment:
+
+```bash
+~/dev/tools/claude-skills/email-summary/scripts/save-attachment.sh \
+  --message-id <id> --attachment-id <id> \
+  --target-dir <path> --date <YYYY-MM-DD> \
+  --description <text> --ext <pdf|jpg|...>
+```
+
+**Folder mapping** (from `config/folders.json`):
+
+| Category | Base path | Subtypes |
+|---|---|---|
+| RENTAL_PROPERTY | `/mnt/c/Users/gwynj/OneDrive/rental/3-20 Russell road` | `Statements`, `Insurance`, `Taxes & expenses`, `Reno quotes`, `Legal`, `healthy homes`, `bank` |
+| GIVING | `/mnt/c/Users/gwynj/OneDrive/donations` | (none — save to base) |
+
+Use `--target-dir <base>/<subtype>` (or just `<base>` for giving/default).
+Use `--description` to describe the file (e.g. `rental statement march 2026`).
+Note the saved path in the summary.
+
+---
+
+## Step 4: Present the summary
 
 Only show categories that have at least one email. Format as follows:
 
@@ -210,6 +215,7 @@ _(repeat for each email)_
 **{Sender}** — {Subject}
 [{messageId}](https://mail.google.com/mail/u/0/#all/{messageId})
 > {Summary}
+> **Attachment saved:** `{path}` ← include if downloaded
 > **Action:** {what needs to be done, if anything}
 
 ---
@@ -255,11 +261,11 @@ _{Total} emails checked · {N} junk/automated skipped_
 
 ---
 
-## Step 5: Audit Section (only when `--audit` is active)
+## Step 4b: Audit section (only when `--audit` is active)
 
 After the standard summary, go through every DISCARD email and do two things:
 
-### 5a — Missed category candidates
+### Missed category candidates
 
 Look for any discarded email that a reasonable person might actually want to know about.
 Consider things like:
@@ -272,7 +278,7 @@ Consider things like:
 For each candidate, briefly note what it is and why it might matter. Then suggest whether it
 warrants a new permanent category.
 
-### 5b — Discard breakdown
+### Discard breakdown
 
 Group all remaining discarded emails by type and count them. Format as:
 

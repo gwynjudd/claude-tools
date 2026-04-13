@@ -1,0 +1,6 @@
+{
+  "rentalDomains": ["aspireproperty.co.nz","email.propertyme.com"],
+  "charities": ["Barnardos","Red Cross","Blind Low Vision NZ","Invisible Girl Project","Save the Children"],
+  "discardAddressPatterns": ["noreply@","no-reply@","donotreply@","do-not-reply@"],
+  "discardBodySignals": ["unsubscribe","manage your preferences","manage preferences","opt out","opt-out"]
+}

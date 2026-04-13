@@ -8,112 +8,139 @@ description: >
 
 # Plan My Day
 
-Produces a unified morning briefing combining calendar, email, and todo list.
+Produces a unified morning briefing: calendar events, email digest, and todo/habits.
 
-When this skill runs, record the current timestamp:
+---
+
+## Step 1: Initialise (all three in parallel)
+
 ```bash
-date -Iseconds > ~/dev/tools/claude-skills/plan-my-day/.last-run
+~/dev/tools/claude-skills/plan-my-day/scripts/record-last-run.sh
 ```
 
----
-
-## Step 1: Today's Calendar
-
-First, call `mcp__gcal__get-current-time` to get the authoritative current date and time in `Pacific/Auckland` timezone. Use this to calculate:
-- **yesterday:** the calendar day before the current NZ date (00:00:00 – 23:59:59)
-- **today:** the current NZ date (00:00:00 – 23:59:59)
-- **+30 days:** current NZ date + 30 days at 23:59:59
-
-Make two calls to `mcp__gcal__list-events` with the same calendars and filters for both:
-- `calendarId`: `["gwynjudd@gmail.com", "family06336024575101905076@group.calendar.google.com", "n8ejujfh7eo85d1b6ond4m5688m4d556@import.calendar.google.com"]`
-- `timeZone`: `Pacific/Auckland`
-- `fields`: `["description", "location", "attendees"]`
-
-**Call A — yesterday:** `timeMin` yesterday 00:00:00, `timeMax` yesterday 23:59:59. Look for anything that may have slipped or needs rescheduling — tasks, reminders, or appointments that were due yesterday and may not have been completed.
-
-**Call B — today + next 30 days:** `timeMin` today 00:00:00, `timeMax` today+30 23:59:59. Today's events shown in full; the rest used for the "coming up" section filtered to 🔴/🟡 priority using the nearness × preparation matrix from the calendar-summary skill.
-
-Filter out all-day placeholder events (e.g. "Home") and events from Devika's imported calendar that are clearly personal to her (webinars, spiritual sessions).
-
----
-
-## Step 2: Email Summary
-
-Call `mcp__gmail__search_emails` with:
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/fetch-emails.sh
 ```
-newer_than:1d -category:promotions -category:updates -category:social
+
+Call `mcp__gcal__get-current-time` with `timeZone: "Pacific/Auckland"`. From the result, derive:
+- `dateLabel` — human-readable, e.g. `Saturday, 12 April 2026`
+- `dayOfWeek` — e.g. `Saturday`
+- `isWeekday` — true if Mon–Fri
+- `yesterday` — the NZ calendar day before today
+- `todayMin` — today at `00:00:00` (NZ time, ISO 8601)
+- `todayMax30` — today + 30 days at `23:59:59` (NZ time, ISO 8601)
+- `yesterdayMin` / `yesterdayMax` — yesterday at `00:00:00` / `23:59:59`
+
+The `fetch-emails.sh` script outputs a compact text digest:
+- `PRE-CLASSIFIED (N emails):` — one line per email with category already assigned
+- `UNCLASSIFIED (N emails):` — emails needing AI classification, with ID, sender, subject, and snippet
+
+Keep this output for Step 3.
+
+---
+
+## Step 2: Launch three sub-agents in parallel
+
+Send a single message with all three Agent tool calls.
+
+**Agent 1 — Calendar** (`subagent_type: "plan-my-day-calendar"`):
 ```
-and also `newer_than:1d in:inbox`.
+Today is {dateLabel} ({dayOfWeek}).
+Yesterday range: {yesterdayMin} to {yesterdayMax}.
+Today+30 range: {todayMin} to {todayMax30}.
+Today is {"a weekday" if isWeekday else "a weekend"}.
+Fetch calendar events and return the formatted calendar section.
+```
 
-Deduplicate, read each with `mcp__gmail__read_email`. Apply the same classification rules as the email-summary skill (FAMILY, PEOPLE, BILLS, RENTAL PROPERTY, SCOUTING, SCHOOL/KIDS, SECURITY ALERTS — discard the rest). For HTML-only emails use `node ~/dev/tools/ai-helpers/fetch-email-html.js <id> --max-chars 4000`.
+**Agent 2 — Todo** (`subagent_type: "plan-my-day-todo"`):
+```
+Today is {dayOfWeek}. {"It is a weekday." if isWeekday else "It is a weekend — no workday constraints."}
+Read the task list and habits. Return the formatted todo and habits sections.
+```
 
-For this briefing, keep it brief — one line per email, action items only.
+**Agent 3 — Google Tasks Sync** (`subagent_type: "plan-my-day-gtasks-sync"`):
+```
+Sync Google Tasks into TASKS.md. Add any new tasks not already in the file, mark completed Google Tasks as done, and update titles/dates where Google differs. Return a one-line summary.
+```
 
----
-
-## Step 3: Todo List
-
-Read `~/dev/tools/claude-skills/user-working-style/TODO.md`. Show only items with status `idea` or `in-progress`, ordered by the table. Skip `done` and `blocked` items.
-
----
-
-## Step 4: Present the Briefing
-
-**Work context:** Mon–Fri is a normal working day. Factor this in when suggesting when to tackle tasks:
-- Lighter tasks (phone calls, appointments, quick admin) are doable on workdays.
-- More substantial personal tasks (errands, multi-hour projects, things requiring focus) are better suited to evenings or weekends — note this when relevant.
-- If today is a weekend, no such constraint applies.
-
-**Work-from-home / office flag:** If today is a weekday and there are any timed calendar events during typical work hours (roughly 8am–6pm), call them out explicitly so the user can consider whether they need to be at home or in the office for them.
-
-Format as follows:
+Keep the Google Tasks sync result for Step 3.
 
 ---
 
-## Plan My Day — {Day, D Month YYYY}
+## Step 3: Classify emails and compile
 
-### ⏮ Yesterday — anything slipped?
-- {event/reminder} — _{suggestion: reschedule / follow up / mark done}_
+### Email classification
 
-_If nothing to flag: omit this section entirely._
+Using the JSON from Step 1, classify emails following the rules in
+`~/dev/tools/claude-skills/email-summary/SKILL.md` Steps 3–3b (AI classification,
+attachment downloads). Use period label `last 24 hours`.
 
----
+Format the email section as:
 
-### 📅 Today
-| Time | Event | Notes |
-|---|---|---|
-| {time or All day} | {event} | {location or key note} |
-
-_If nothing today: "Nothing in the calendar today."_
-
-_{If today is a weekday and any events fall within work hours (8am–6pm): add a note like "**Heads up:** you have [event] at [time] — worth checking if you need to be home or at the office."}_
-
-**Coming up (next 30 days):**
-- {Tue 7 Apr} — {event} _{priority: 🔴/🟡/🟢}_
-- _(show 🔴 and 🟡 items only; skip routine low-prep recurring events)_
-
----
-
+```
 ### 📧 Emails
 | Priority | From | Subject | Action |
 |---|---|---|---|
-| 🔴/🟡/🟢 | {name} | {subject} | {one-line action or "No action"} |
+| 🔴/🟡/🟢 | {sender name} | {subject} | {one-line action or "No action needed"} |
+```
 
-_If no notable emails: "Nothing notable in the last 24 hours."_
+Priority: 🔴 immediate action · 🟡 act soon · 🟢 informational.
+Omit DISCARD emails. If nothing notable: `_Nothing notable in the last 24 hours._`
+
+### Compile and present
+
+```
+## Plan My Day — {dateLabel}
+
+{calendar result}
 
 ---
 
-### ✅ Todo
-| # | Task | Size | Status | Best time |
-|---|---|---|---|---|
-| {#} | {task} | {size} | {idea/in-progress} | {Workday ok / Evening or weekend} |
+{email section}
 
-_(For each todo, add a "Best time" suggestion based on whether it's a light task doable on a workday vs something more substantial.)_
+---
+
+{todo result}
+```
+
+If the Google Tasks sync result is anything other than `nothing new`, append it as a italic footnote after the todo section:
+```
+_Sync: {gtasks sync result}_
+```
+
+**Work context note:** if today is a weekday and the calendar result includes a "Heads up" about office/home events, make sure it's visible after the Today table.
+
+After presenting, offer to act on anything (reply to email, update a task, create a calendar event) and ask if they'd like to dig into anything.
 
 ---
 
 ## Notes
 
-- Keep the briefing tight — this is a quick morning scan, not a deep dive
-- If the user asks to act on anything (reply to email, create calendar event, update todo), do it
-- After presenting, ask if they'd like to dig into anything
+- Task mutations (marking done, adding tasks, etc.) are handled by the main agent after the briefing — not by sub-agents
+- If a script or sub-agent fails, note it in the briefing and continue with the others
+
+---
+
+## Outbound sync — TASKS.md → Google Tasks
+
+These rules apply whenever you create or update a task in TASKS.md (during or after the briefing).
+
+### Creating a new task
+
+After writing a new row to TASKS.md, check if it qualifies for Google Tasks:
+- Has a future `ETA / Deadline`, **or**
+- Is likely actionable away from home (phone calls, purchases, errands, bookings, appointments)
+
+If it qualifies, offer: _"Should I also add this to Google Tasks so it's on your phone?"_
+
+On confirmation:
+1. Call `mcp__gtasks__task_create` with `title` (Task field) and, if a date is set, `due` in RFC 3339 format (`YYYY-MM-DDT00:00:00Z`)
+2. Write the returned task `id` into the `external_id` column for that row in TASKS.md
+
+### Updating an existing task that has an `external_id`
+
+When you change the title, due date, or status of a task that has an `external_id`, mirror the change to Google:
+- Title or date change: call `mcp__gtasks__task_update` with the updated `title` and/or `due`
+- Status changed to `done`: call `mcp__gtasks__task_update` with `status: "completed"`
+
+Do this automatically (no need to ask) when the task already has an `external_id`.

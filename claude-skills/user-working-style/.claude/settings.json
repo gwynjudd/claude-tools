@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(~/dev/tools/claude-skills/user-working-style/config/)",
+      "Write(~/dev/tools/claude-skills/user-working-style/config/)",
+      "Edit(~/dev/tools/claude-skills/user-working-style/data/)",
+      "Write(~/dev/tools/claude-skills/user-working-style/data/)"
+    ]
+  },
+  "sandbox": {
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/dev/tools/claude-skills/user-working-style/"
+      ]
+    }
+  }
+}
