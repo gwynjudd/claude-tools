@@ -13,8 +13,9 @@ skill-name/
 ├── SKILL.md         # Only file at the top level for skills
 ├── scripts/         # Shell scripts used by the skill
 ├── src/             # Source code (if needed)
-├── config/          # Runtime state, settings, .env files
-├── data/            # Skill data files (e.g. RECIPES.md)
+├── tmp/             # Temporary directory (.gitignore)
+├── config/          # Configuration: files you edit to change behaviour (excluded calendars, criteria, settings)
+├── data/            # Operational data: files the system writes during runs (.last-run, task DBs, caches)
 └── .claude/
     └── settings.json
 ```
@@ -34,6 +35,7 @@ maintained as documentation and apply if a skill directory is ever opened direct
 |-----------|----------------------------|---------------------------|----------------------------------|--------|
 | `config/` | ✅ yes | ❌ no | ✅ yes | No prompt, write succeeds; execution fails |
 | `data/`   | ✅ yes | ❌ no | ✅ yes | No prompt, write succeeds; execution fails |
+| `tmp/`   | ✅ yes | ❌ no | ✅ yes | No prompt, write succeeds; execution fails |
 | `scripts/`| ❌ no  | ✅ yes | ✅ yes | No prompt, execution succeeds; prompt required for edits |
 | `src/`    | ❌ no  | ❌ no  | ✅ yes | Prompt required, write succeeds once approved; execution fails |
 

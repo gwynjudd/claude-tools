@@ -4,4 +4,4 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-date -Iseconds > "$SCRIPT_DIR/../config/.last-run"
+date -Iseconds > "$SCRIPT_DIR/../data/.last-run"

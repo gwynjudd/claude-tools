@@ -1,13 +1,8 @@
 # Todo List
 
-The todo list lives in the plan-my-day skill. Full schema and maintenance instructions are in:
-`~/dev/tools/claude-skills/plan-my-day/data/TODO.md`
+The todo list is stored in a SQLite database managed by the plan-my-day skill.
 
-Key files:
-- **`TASKS.md`** — active tasks (`idea`, `in-progress`, `blocked`)
-- **`DAILY_HABITS.md`** — active daily habits
-- **`COMPLETED_TASKS.md`** — completed tasks (archive)
-- **`todo/<N>-<slug>.md`** — per-task detail files (load only when actioning that task)
+Full schema and CLI reference: `~/dev/tools/claude-skills/plan-my-day/data/TODO.md`
 
 **Trigger phrases** — when the user says any of these, capture the task immediately:
 - "Add X to the todo list"
@@ -17,12 +12,27 @@ Key files:
 - Similar intent
 
 **How to capture:**
-1. Read `TASKS.md` (and check `COMPLETED_TASKS.md` for highest `#`)
-2. Assign the next available `#` number
-3. Ask for any missing fields if not clear from context (size, ETA, dependencies)
-4. Add a row to `TASKS.md`
-5. If the task has significant detail (size M+, research notes, checklists), create `data/todo/<N>-<slug>.md` and set the `Details` column to `@<N>-<slug>.md`
 
-When the user asks to see the todo list, read and display `TASKS.md`.
-When a task is started, update its **Status** to `in-progress` in `TASKS.md`.
-When a task is completed: move the row to `COMPLETED_TASKS.md` with status `done`. XS tasks can be omitted from the archive.
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-add.sh \
+  --title "..." --size S [--eta YYYY-MM-DD] [--status idea]
+```
+
+Ask for any missing fields if not clear from context (size, ETA). The script returns JSON with the new task including its `id`.
+
+**How to view the todo list:**
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-list.sh
+~/dev/tools/claude-skills/plan-my-day/scripts/task-list.sh --status in-progress
+~/dev/tools/claude-skills/plan-my-day/scripts/task-list.sh --status all
+```
+
+**How to update / complete a task:**
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-update.sh <id|slug> --status in-progress
+~/dev/tools/claude-skills/plan-my-day/scripts/task-complete.sh <id|slug>
+```
+
+Never edit any markdown files directly — all mutations go through the CLI scripts.

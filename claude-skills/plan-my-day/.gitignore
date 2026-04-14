@@ -1,0 +1,4 @@
+data/.last-run
+data/tasks.db
+data/tasks.db-shm
+data/tasks.db-wal

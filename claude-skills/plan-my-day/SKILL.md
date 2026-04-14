@@ -60,7 +60,7 @@ Read the task list and habits. Return the formatted todo and habits sections.
 
 **Agent 3 — Google Tasks Sync** (`subagent_type: "plan-my-day-gtasks-sync"`):
 ```
-Sync Google Tasks into TASKS.md. Add any new tasks not already in the file, mark completed Google Tasks as done, and update titles/dates where Google differs. Return a one-line summary.
+Sync Google Tasks into the task DB. Add any new tasks not already in the DB, mark completed Google Tasks as done, and update titles/dates where Google differs. Return a one-line summary.
 ```
 
 Keep the Google Tasks sync result for Step 3.
@@ -121,26 +121,45 @@ After presenting, offer to act on anything (reply to email, update a task, creat
 
 ---
 
-## Outbound sync — TASKS.md → Google Tasks
+## Task mutations (during or after briefing)
 
-These rules apply whenever you create or update a task in TASKS.md (during or after the briefing).
+All task reads and writes go through the CLI scripts in `scripts/`.
 
-### Creating a new task
+### Adding a task
 
-After writing a new row to TASKS.md, check if it qualifies for Google Tasks:
-- Has a future `ETA / Deadline`, **or**
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-add.sh \
+  --title "..." --size S [--eta YYYY-MM-DD] [--status idea]
+```
+
+Returns JSON with the new task including its `id`.
+
+After adding, check if it qualifies for Google Tasks:
+- Has a future `eta`, **or**
 - Is likely actionable away from home (phone calls, purchases, errands, bookings, appointments)
 
 If it qualifies, offer: _"Should I also add this to Google Tasks so it's on your phone?"_
 
 On confirmation:
-1. Call `mcp__gtasks__task_create` with `title` (Task field) and, if a date is set, `due` in RFC 3339 format (`YYYY-MM-DDT00:00:00Z`)
-2. Write the returned task `id` into the `external_id` column for that row in TASKS.md
+1. Call `mcp__gtasks__task_create` with `title` and, if a date is set, `due` in RFC 3339 format (`YYYY-MM-DDT00:00:00Z`)
+2. Store the returned Google task `id`:
 
-### Updating an existing task that has an `external_id`
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-update.sh {id} --external-id "{google_task_id}"
+```
 
-When you change the title, due date, or status of a task that has an `external_id`, mirror the change to Google:
-- Title or date change: call `mcp__gtasks__task_update` with the updated `title` and/or `due`
-- Status changed to `done`: call `mcp__gtasks__task_update` with `status: "completed"`
+### Completing a task
 
-Do this automatically (no need to ask) when the task already has an `external_id`.
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-complete.sh {id|slug}
+```
+
+If the task has a non-null `external_id`, also call `mcp__gtasks__task_update` with `status: "completed"`.
+
+### Updating a task
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-update.sh {id|slug} [--title "..."] [--eta YYYY-MM-DD] [--status ...]
+```
+
+If the task has a non-null `external_id`, mirror title/date changes to Google automatically via `mcp__gtasks__task_update`.

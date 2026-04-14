@@ -39,7 +39,7 @@ Read ~/dev/tools/claude-skills/plan-my-day/sub-agents/calendar.md and follow tho
 name: plan-my-day-todo
 description: Reads the todo list and daily habits for the plan-my-day briefing. Only invoke from the plan-my-day skill.
 model: haiku
-tools: Read
+tools: Read, Bash
 ---
 
 Read ~/dev/tools/claude-skills/plan-my-day/sub-agents/todo.md and follow those instructions exactly.
@@ -67,9 +67,9 @@ Read ~/dev/tools/claude-skills/plan-my-day/sub-agents/email.md and follow those 
 ```markdown
 ---
 name: plan-my-day-gtasks-sync
-description: Syncs Google Tasks into TASKS.md for the plan-my-day briefing. Only invoke from the plan-my-day skill.
+description: Syncs Google Tasks into the SQLite task DB for the plan-my-day briefing. Only invoke from the plan-my-day skill.
 model: haiku
-tools: Read, Edit, mcp__gtasks__task_list, mcp__gtasks__tasklist_list
+tools: Read, Bash, mcp__gtasks__task_list, mcp__gtasks__tasklist_list
 ---
 
 Read ~/dev/tools/claude-skills/plan-my-day/sub-agents/gtasks-sync.md and follow those instructions exactly.

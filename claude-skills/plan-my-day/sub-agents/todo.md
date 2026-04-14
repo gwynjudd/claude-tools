@@ -4,16 +4,36 @@ You are reading the task list and daily habits for a daily briefing. The invokin
 
 ---
 
-## Read Files
+## Read Data
 
-1. Read `~/dev/tools/claude-skills/plan-my-day/data/TASKS.md`
-2. Read `~/dev/tools/claude-skills/plan-my-day/data/DAILY_HABITS.md`
+Run both commands:
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-list.sh --status idea
+```
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/task-list.sh --status in-progress
+```
+
+```bash
+~/dev/tools/claude-skills/plan-my-day/scripts/habit-list.sh
+```
+
+Each returns a JSON array. Merge the two task arrays (idea + in-progress) — these are your active tasks.
 
 ---
 
 ## Tasks
 
-Show only rows with status `idea` or `in-progress`. Skip `done` and `blocked`. Preserve the table order.
+Show all tasks from the merged array. Fields in the JSON:
+- `id` → `#`
+- `title` → `Task`
+- `size` → `Size`
+- `status` → `Status`
+- `eta` / `eta_description` → use as deadline hint if relevant
+
+Skip tasks with `status: "done"` or `status: "blocked"`.
 
 For each task, add a **Best time** suggestion:
 - **Workday ok** — lighter tasks: quick phone calls, brief admin, online purchases, short appointments
@@ -29,17 +49,17 @@ Return exactly this markdown:
 ```
 
 ### 🔁 Daily Habits
-- [ ] {habit task}
+- [ ] {habit title}
 
 ---
 
 ### ✅ Todo
 | # | Task | Size | Status | Best time |
 |---|---|---|---|---|
-| {#} | {task} | {size} | {idea/in-progress} | {suggestion} |
+| {id} | {title} | {size} | {status} | {suggestion} |
 
 ```
 
-List all active habits from DAILY_HABITS.md as unchecked checkboxes.
+List all habits from the habit-list output as unchecked checkboxes.
 
 **Important:** Never use `<details>`, `<summary>`, or any HTML tags. Output plain markdown only — the full task table, no collapsing or truncating.

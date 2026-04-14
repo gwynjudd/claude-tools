@@ -1,19 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "mcp__gcal__get-current-time",
-      "mcp__gcal__list-calendars",
-      "mcp__gcal__list-events",
-      "mcp__gcal__manage-accounts",
-      "mcp__gcal__search-events"
+      "Bash(scripts/fetch-events.sh*)",
+      "Bash(scripts/update-cache.sh*)",
+      "Bash(scripts/present.sh*)",
+      "Bash(scripts/manage-event.sh*)",
+      "Bash(scripts/calendar-reauth.sh*)",
+      "Bash(npm run build*)",
+      "Bash(npm test*)"
     ]
-  },
-  "sandbox": {
-    "autoAllowBashIfSandboxed": true,
-    "filesystem": {
-      "allowWrite": [
-        "~/dev/tools/claude-skills/calendar-summary/"
-      ]
-    }
   }
 }
