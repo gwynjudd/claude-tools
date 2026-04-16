@@ -21,6 +21,7 @@ When this skill is invoked, fetch and summarise emails from Gmail for the specif
 
 > **Auth note:** If any script exits with an auth error, run:
 > `~/dev/tools/claude-skills/email-summary/scripts/gmail-reauth.sh`
+> For first-time setup, run `gmail-migrate.sh` to migrate existing tokens from `~/.gmail-mcp/`.
 
 ---
 
@@ -50,9 +51,13 @@ Outputs:
 ```json
 {
   "pre_classified": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments","category","confidence"}],
-  "unclassified": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments"}]
+  "unclassified": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments"}],
+  "from_cache": [{"id","from","fromEmail","subject","date","snippet","body","hasAttachments","category","attachments_downloaded"}]
 }
 ```
+
+**`from_cache` emails are fully processed** — include them in the summary without any further steps
+(classification is already done and any required attachments have been downloaded).
 
 Pre-classified categories (all confidence `"high"`):
 - `FAMILY` — sender name or email matches `config/family.json`
@@ -145,6 +150,15 @@ Everything else: newsletters, promotions, social media notifications, marketing,
 shipping/order confirmations for routine purchases, calendar invite noise.
 Do not report these individually — just count them. When `--audit` is active, retain the full
 list for Step 4 rather than discarding entirely.
+
+After classifying each email in `unclassified` (including DISCARDs), write the result to the cache:
+
+```bash
+~/dev/tools/claude-skills/email-summary/scripts/email.sh cache store-ai \
+  --id <messageId> --category <CATEGORY>
+```
+
+_(Run once per email, e.g. in a loop over all classified emails)_
 
 ---
 

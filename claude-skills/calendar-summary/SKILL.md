@@ -23,8 +23,10 @@ preparation required. Uses the `cal` CLI — no MCP calls needed.
 scripts/fetch-events.sh --window {window}
 ```
 
-Outputs `FetchEventsOutput` JSON to stdout. Events with `cached: true` already have
-`prep_level` and `notes` filled in. Events with `cached: false` need AI judgement.
+Save the output to `tmp/fetch.json` using the **Write tool** (pre-approved, no prompt).
+
+Events with `cached: true` already have `prep_level` and `notes` filled in.
+Events with `cached: false` need AI judgement.
 
 ---
 
@@ -40,31 +42,25 @@ Read `config/prep-level-criteria.md` for the definitions.
 include events relevant to both of you (birthdays, shared appointments). Skip events
 clearly personal to her (webinars, spiritual sessions, self-improvement talks).
 
-Fill the assigned `prep_level` and `notes` into the JSON in memory.
+Produce a compact judgements array (only `id`, `prep_level`, `notes`):
+```json
+[{"id": "...", "prep_level": "HIGH", "notes": "..."}]
+```
 
-If all events are cached (`cached: false` count is zero), skip this step entirely.
+Write it to `tmp/judgements.json` using the **Write tool** (pre-approved, no prompt).
+
+If all events are cached (`cached: false` count is zero), skip this step and proceed to Step 3 with an empty array `[]`.
 
 ---
 
-## Step 3: Update cache
-
-Pipe the fully-judged JSON to:
-```bash
-scripts/update-cache.sh
-```
-
-This writes only events that have a `prep_level` to the cache — safe to pipe even if no
-events were judged.
-
----
-
-## Step 4: Present
+## Step 3: Apply judgements, update cache, and present
 
 ```bash
-scripts/present.sh --format human
+scripts/apply-judgements.sh --fetch tmp/fetch.json --format human < tmp/judgements.json
 ```
 
-Outputs the three-tier grouped table (🔴 Urgent / 🟡 Coming up / 🟢 On the radar).
+This patches the fetch output with your judgements, updates the cache, and outputs the
+three-tier grouped table (🔴 Urgent / 🟡 Coming up / 🟢 On the radar).
 
 ---
 

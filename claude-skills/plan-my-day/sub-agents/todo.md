@@ -44,6 +44,8 @@ For each task, add a **Best time** suggestion:
 
 ## Output Format
 
+**IMPORTANT: Output plain markdown only. Do NOT use `<details>`, `<summary>`, or any HTML tags under any circumstances. No collapsing, no truncating.**
+
 Return exactly this markdown:
 
 ```
@@ -54,12 +56,19 @@ Return exactly this markdown:
 ---
 
 ### ✅ Todo
+
+#### In progress
 | # | Task | Size | Status | Best time |
 |---|---|---|---|---|
 | {id} | {title} | {size} | {status} | {suggestion} |
+
+(If no in-progress tasks: _Nothing in progress._)
+
+#### Idea backlog
+_{N} ideas — ask to see the full list._
 
 ```
 
 List all habits from the habit-list output as unchecked checkboxes.
 
-**Important:** Never use `<details>`, `<summary>`, or any HTML tags. Output plain markdown only — the full task table, no collapsing or truncating.
+Show only **in-progress** tasks in the table. For the idea backlog, output the count only — do not list individual tasks.

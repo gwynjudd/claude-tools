@@ -5,9 +5,9 @@
  *   import { getAccessToken, reauth, migrateCalendarTokens } from '@gwynj/google-oauth';
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import {
   type Service,
   type TokenEntry,
@@ -65,6 +65,51 @@ async function refreshToken(service: Service, account: string, token: TokenEntry
 
   writeToken(service, account, updated);
   return updated.access_token;
+}
+
+// ── migrateGmailTokens ─────────────────────────────────────────────────────
+
+/**
+ * One-time migration: copies Gmail tokens from
+ * ~/.gmail-mcp/credentials.json → ~/.config/google-oauth/tokens.json
+ * under the "gmail/default" key.
+ *
+ * Also copies ~/.gmail-mcp/gcp-oauth.keys.json → ~/.config/google-oauth/gcp-oauth.keys.json
+ * if the unified keys file does not already exist.
+ *
+ * Source token format: { access_token, refresh_token, expiry_date, scope, token_type }
+ */
+export async function migrateGmailTokens(): Promise<void> {
+  const srcTokenPath = join(homedir(), '.gmail-mcp', 'credentials.json');
+  const srcKeysPath  = join(homedir(), '.gmail-mcp', 'gcp-oauth.keys.json');
+
+  let srcToken: TokenEntry;
+  try {
+    srcToken = JSON.parse(readFileSync(srcTokenPath, 'utf8')) as TokenEntry;
+  } catch (err) {
+    throw new Error(`Cannot read Gmail token at ${srcTokenPath}: ${(err as Error).message}`);
+  }
+
+  writeToken('gmail', 'default', srcToken);
+  console.log('Migrated gmail/default');
+
+  // Copy OAuth keys if the unified keys file doesn't already exist
+  try {
+    readFileSync(OAUTH_KEYS_PATH, 'utf8');
+    console.log(`OAuth keys already present at ${OAUTH_KEYS_PATH} — skipping copy`);
+  } catch {
+    try {
+      const keysContent = readFileSync(srcKeysPath, 'utf8');
+      mkdirSync(dirname(OAUTH_KEYS_PATH), { recursive: true });
+      writeFileSync(OAUTH_KEYS_PATH, keysContent);
+      console.log(`Copied OAuth keys to ${OAUTH_KEYS_PATH}`);
+    } catch (err) {
+      console.warn(`Could not copy OAuth keys from ${srcKeysPath}: ${(err as Error).message}`);
+      console.warn('You may need to copy gcp-oauth.keys.json manually.');
+    }
+  }
+
+  console.log('Gmail token migration complete.');
 }
 
 // ── migrateCalendarTokens ───────────────────────────────────────────────────

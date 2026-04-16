@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import {
+  getClassifications,
+  storeStep2Result,
+} from "./email-cache.js";
 
 export interface Email {
   id: string;
@@ -18,10 +22,19 @@ export interface ClassifiedEmail extends Email {
   confidence: "high";
 }
 
+export interface CachedEmail extends Email {
+  category: string;
+  attachments_downloaded: boolean;
+}
+
 export interface Output {
   pre_classified: ClassifiedEmail[];
   unclassified: Email[];
+  from_cache: CachedEmail[];
 }
+
+// Categories that require attachment download before an email is fully done
+const ATTACHMENT_NEEDED_CATEGORIES = new Set(['RENTAL_PROPERTY', 'GIVING']);
 
 export interface FamilyConfig {
   names: string[];
@@ -114,15 +127,48 @@ function classify(
 }
 
 export function classifyAll(emails: Email[], config: Config): Output {
-  const output: Output = { pre_classified: [], unclassified: [] };
+  const output: Output = { pre_classified: [], unclassified: [], from_cache: [] };
+  const allIds = emails.map(e => e.id);
+  const cached = getClassifications(allIds);
+
   for (const email of emails) {
-    const category = classify(email, config.family, config.categories);
-    if (category !== null) {
-      output.pre_classified.push({ ...email, category, confidence: "high" });
+    const entry = cached.get(email.id);
+
+    if (!entry) {
+      // Never seen — run rules, always write a row
+      const category = classify(email, config.family, config.categories);
+      storeStep2Result(email.id, category);
+      if (category !== null) {
+        output.pre_classified.push({ ...email, category, confidence: "high" });
+      } else {
+        output.unclassified.push(email);
+      }
+      continue;
+    }
+
+    const effectiveCategory = entry.ai_classification ?? entry.pre_classification;
+
+    if (effectiveCategory !== null) {
+      // Step 2 ran and a category is known (via rules or AI)
+      const needsAttachments =
+        ATTACHMENT_NEEDED_CATEGORIES.has(effectiveCategory) && email.hasAttachments;
+      const fullyDone = !needsAttachments || entry.attachments_downloaded;
+      if (fullyDone) {
+        output.from_cache.push({
+          ...email,
+          category: effectiveCategory,
+          attachments_downloaded: entry.attachments_downloaded,
+        });
+      } else {
+        // Has a known category but attachments still needed
+        output.pre_classified.push({ ...email, category: effectiveCategory, confidence: "high" });
+      }
     } else {
+      // Both null: step 2 ran, no rule match, AI not yet done → needs AI
       output.unclassified.push(email);
     }
   }
+
   return output;
 }
 

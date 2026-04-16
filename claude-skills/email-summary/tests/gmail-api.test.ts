@@ -1,97 +1,54 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock fs module before importing the module under test
-vi.mock('fs', () => ({
-  readFileSync: vi.fn(),
-  writeFileSync: vi.fn(),
+// Mock @gwynj/google-oauth before importing the module under test
+vi.mock('@gwynj/google-oauth', () => ({
+  getAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
 }));
 
-// Mock os module
-vi.mock('os', () => ({
-  homedir: () => '/home/testuser',
-}));
-
-import { readFileSync, writeFileSync } from 'fs';
-import { getAccessToken, htmlToText } from '../src/gmail-api.js';
-
-const mockReadFileSync = vi.mocked(readFileSync);
-const mockWriteFileSync = vi.mocked(writeFileSync);
-
-const VALID_TOKEN = {
-  access_token: 'existing-access-token',
-  refresh_token: 'my-refresh-token',
-  expiry_date: Date.now() + 120_000, // valid for 2 more minutes
-};
-
-const EXPIRED_TOKEN = {
-  access_token: 'old-access-token',
-  refresh_token: 'my-refresh-token',
-  expiry_date: Date.now() - 1000, // already expired
-};
-
-const OAUTH_KEYS = {
-  installed: {
-    client_id: 'test-client-id',
-    client_secret: 'test-client-secret',
-    redirect_uris: ['http://localhost:3000'],
-  },
-};
+import { getAccessToken as mockGetAccessToken } from '@gwynj/google-oauth';
+import { searchMessages, htmlToText } from '../src/gmail-api.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('fetch', vi.fn());
 });
 
-describe('getAccessToken', () => {
-  it('returns existing access_token when token is still valid', async () => {
-    mockReadFileSync.mockReturnValue(JSON.stringify(VALID_TOKEN) as any);
-
-    const token = await getAccessToken();
-
-    expect(token).toBe('existing-access-token');
-    expect(fetch).not.toHaveBeenCalled();
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
-  });
-
-  it('refreshes token when expired, saves updated token, returns new access_token', async () => {
-    mockReadFileSync
-      .mockReturnValueOnce(JSON.stringify(EXPIRED_TOKEN) as any)  // credentials.json
-      .mockReturnValueOnce(JSON.stringify(OAUTH_KEYS) as any);    // gcp-oauth.keys.json
-
+describe('searchMessages', () => {
+  it('calls getAccessToken with "gmail" and uses the token in Authorization header', async () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ access_token: 'new-access-token', expires_in: 3600 }),
+      json: async () => ({ messages: [{ id: '1', threadId: 't1' }] }),
     } as Response);
 
-    const token = await getAccessToken();
+    const results = await searchMessages('in:inbox', 10);
 
-    expect(token).toBe('new-access-token');
-    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(vi.mocked(mockGetAccessToken)).toHaveBeenCalledWith('gmail');
+    expect(results).toEqual([{ id: '1', threadId: 't1' }]);
 
-    const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://oauth2.googleapis.com/token');
-    expect((options as RequestInit).method).toBe('POST');
-
-    expect(mockWriteFileSync).toHaveBeenCalledOnce();
-    const savedContent = JSON.parse((mockWriteFileSync.mock.calls[0][1] as string));
-    expect(savedContent.access_token).toBe('new-access-token');
-    expect(savedContent.refresh_token).toBe('my-refresh-token');
-    expect(savedContent.expiry_date).toBeGreaterThan(Date.now());
+    const [, options] = mockFetch.mock.calls[0];
+    const headers = (options as RequestInit).headers as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer mock-access-token');
   });
 
-  it('throws "Token refresh failed: ..." when refresh HTTP call fails', async () => {
-    mockReadFileSync
-      .mockReturnValueOnce(JSON.stringify(EXPIRED_TOKEN) as any)
-      .mockReturnValueOnce(JSON.stringify(OAUTH_KEYS) as any);
-
-    const mockFetch = vi.mocked(fetch);
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      text: async () => 'invalid_grant',
+  it('returns empty array when Gmail API returns no messages', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
     } as Response);
 
-    await expect(getAccessToken()).rejects.toThrow('Token refresh failed: invalid_grant');
+    const results = await searchMessages('in:inbox', 10);
+    expect(results).toEqual([]);
+  });
+
+  it('throws on non-ok response', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => 'Unauthorized',
+    } as Response);
+
+    await expect(searchMessages('q', 10)).rejects.toThrow('Gmail API error 401');
   });
 });
 

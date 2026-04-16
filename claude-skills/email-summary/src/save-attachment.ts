@@ -19,6 +19,7 @@ import { writeFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { downloadAttachment } from './gmail-api.js'
+import { markAttachmentsDownloaded } from './email-cache.js'
 
 // Characters that are unsafe in filenames — replace with '_'
 const UNSAFE_FILENAME_RE = /[/\\:*?"<>|]/g
@@ -64,6 +65,7 @@ export async function saveAttachment(opts: SaveOptions): Promise<string> {
     throw new Error(`Rename failed: ${(err as Error).message}`)
   }
 
+  markAttachmentsDownloaded(opts.messageId)
   return finalPath
 }
 
