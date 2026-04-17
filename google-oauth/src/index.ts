@@ -112,6 +112,45 @@ export async function migrateGmailTokens(): Promise<void> {
   console.log('Gmail token migration complete.');
 }
 
+// ── migrateTasksTokens ─────────────────────────────────────────────────────
+
+/**
+ * One-time migration: extracts the Google Tasks refresh token from
+ * ~/.claude.json (where the gtasks MCP server stores it as an env var)
+ * and writes it to ~/.config/google-oauth/tokens.json under "tasks/default".
+ *
+ * The access_token is left empty and expiry_date is set to 0, so the first
+ * call to getAccessToken('tasks') will immediately refresh and populate them.
+ */
+export async function migrateTasksTokens(): Promise<void> {
+  const claudeJsonPath = join(homedir(), '.claude.json');
+
+  let claudeJson: { mcpServers?: Record<string, { env?: Record<string, string> }> };
+  try {
+    claudeJson = JSON.parse(readFileSync(claudeJsonPath, 'utf8'));
+  } catch (err) {
+    throw new Error(`Cannot read ${claudeJsonPath}: ${(err as Error).message}`);
+  }
+
+  const refreshToken = claudeJson.mcpServers?.['gtasks']?.env?.['REFRESH_TOKEN'];
+  if (!refreshToken) {
+    throw new Error(
+      `No REFRESH_TOKEN found in mcpServers.gtasks.env in ${claudeJsonPath}. ` +
+      `Run reauth instead: import { reauth } from '@gwynj/google-oauth'; await reauth('tasks');`
+    );
+  }
+
+  writeToken('tasks', 'default', {
+    access_token: '',
+    refresh_token: refreshToken,
+    expiry_date: 0,  // forces immediate refresh on first getAccessToken() call
+    scope: 'https://www.googleapis.com/auth/tasks',
+    token_type: 'Bearer',
+  });
+
+  console.log('Migrated tasks/default (refresh token written; access token will be fetched on first use).');
+}
+
 // ── migrateCalendarTokens ───────────────────────────────────────────────────
 
 /**

@@ -12,7 +12,8 @@
     "test:watch":  "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^12.0.0"
+    "better-sqlite3": "^12.0.0",
+    "@gwynj/google-oauth": "file:../../../google-oauth"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
